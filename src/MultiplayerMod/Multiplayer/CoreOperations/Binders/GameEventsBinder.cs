@@ -1,6 +1,7 @@
-﻿using JetBrains.Annotations;
+using JetBrains.Annotations;
 using MultiplayerMod.Core.Dependency;
 using MultiplayerMod.Core.Logging;
+using MultiplayerMod.Game.Chores;
 using MultiplayerMod.Game.Debug;
 using MultiplayerMod.Game.Mechanics.Objects;
 using MultiplayerMod.Game.Mechanics.Printing;
@@ -10,6 +11,7 @@ using MultiplayerMod.Game.UI.Screens.Events;
 using MultiplayerMod.Game.UI.SideScreens;
 using MultiplayerMod.Game.UI.Tools.Events;
 using MultiplayerMod.Multiplayer.Commands.Alerts;
+using MultiplayerMod.Multiplayer.Commands.Chores;
 using MultiplayerMod.Multiplayer.Commands.Debug;
 using MultiplayerMod.Multiplayer.Commands.Gameplay;
 using MultiplayerMod.Multiplayer.Commands.Overlay;
@@ -149,6 +151,7 @@ public class GameEventsBinder {
         ObjectEvents.StateMachineMethodCalled += args => client.Send(new CallMethod(args));
         TelepadEvents.AcceptDelivery += args => client.Send(new AcceptDelivery(args));
         TelepadEvents.Reject += reference => client.Send(new RejectDelivery(reference));
+        WorkerEvents.FinishWork += args => client.Send(new FinishWorkEvent(args));
     }
 
     private void BindSideScreens() {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using MultiplayerMod.Multiplayer.Objects.Reference;
@@ -12,7 +12,8 @@ public static class ComponentReferenceExtensions {
         typeof(MinionResume),
         typeof(Schedulable),
         typeof(ConsumableConsumer),
-        typeof(ChoreConsumer)
+        typeof(ChoreConsumer),
+        typeof(Worker)
     };
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 
 namespace MultiplayerMod.Multiplayer.Objects.Reference;
@@ -25,6 +25,23 @@ public class ComponentReference<T> where T : KMonoBehaviour {
 
     public ComponentReference(GameObjectReference gameObjectReference) {
         GameObjectReference = gameObjectReference;
+    }
+
+    public bool IsValid() {
+        try
+        {
+            GameObjectReference.GetGameObject();
+        } catch (ObjectNotFoundException e)
+        {
+            return false;
+        }
+        try
+        {
+            return GameObjectReference.GetComponent(typeof(T)) != null;
+        } catch (NullReferenceException e)
+        {
+            return false;
+        }
     }
 
     public T GetComponent() => GameObjectReference.GetComponent<T>();

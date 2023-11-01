@@ -1,9 +1,12 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using MultiplayerMod.Core.Logging;
 using MultiplayerMod.Game.Chores;
+using MultiplayerMod.Multiplayer.Objects.Reference;
 using MultiplayerMod.Multiplayer.World;
+using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace MultiplayerMod.Multiplayer.Commands.Chores;
@@ -20,6 +23,11 @@ public class FindNextChore : MultiplayerCommand {
     private string choreType;
     private int choreCell;
     private bool isAttemptingOverride;
+    private bool lastChoreSucceeded;
+    private StateMachineReference choreStateMachineRef;
+
+    [System.NonSerialized]
+    private Dictionary<int, List<HostChores.HostChoreInfo>> inProgressSearches = new Dictionary<int, List<HostChores.HostChoreInfo>>();
 
     public FindNextChore(FindNextChoreEventArgs args) {
         log.Level = LogLevel.Debug;
@@ -31,25 +39,107 @@ public class FindNextChore : MultiplayerCommand {
         choreType = args.ChoreType.ToString();
         choreCell = args.ChoreCell;
         isAttemptingOverride = args.IsAttemptingOverride;
+        lastChoreSucceeded = args.LastChoreSucceeded;
+        choreStateMachineRef = args.ChoreStateMachine;
     }
 
     public override void Execute(MultiplayerCommandContext context) {
         log.Debug(
             $"Received {instanceId} {instanceString} {instanceCell} {choreId} {choreType} {choreCell}"
         );
-        var choreContext = FindContext();
-        if (choreContext == null)
+        var prefabID = Object.FindObjectsOfType<KPrefabID>().FirstOrDefault(a => a.InstanceID == instanceId);
+        if (prefabID == null)
+        {
+            log.Warning(
+                $"Multiplayer: Consumer does not exists at KPrefabId with desired ID {instanceId}. Id collision??"
+            );
             return;
-
+        }
+        var consumer = prefabID.GetComponent<ChoreConsumer>();
+        if (consumer == null)
+        {
+            log.Warning(
+                $"Multiplayer: ChoreConsumer does not exists at KPrefabId with desired ID {instanceId}. Id collision??"
+            );
+            return;
+        }
         if (!HostChores.Index.ContainsKey(instanceId))
-            HostChores.Index[instanceId] = new Queue<Chore.Precondition.Context>();
-        HostChores.Index[instanceId].Enqueue(choreContext.Value);
+        {
+            HostChores.Index[instanceId] = new Queue<HostChores.HostChoreInfo>();
+        }
+
+        HostChores.HostChoreInfo newChore = new HostChores.HostChoreInfo();
+
+        if (!inProgressSearches.ContainsKey(choreId))
+        {
+            inProgressSearches[choreId] = new List<HostChores.HostChoreInfo>();
+        }
+        else
+        {
+            foreach (var choreInfo in inProgressSearches[choreId])
+            {
+                choreInfo.Skip();
+            }
+        }
+        inProgressSearches[choreId].Add(newChore);
+        HostChores.Index[instanceId].Enqueue(newChore);
+        var getContext = WaitForChoreContext(newChore, 0.2f, 2.0f);
+        consumer.StartCoroutine(getContext);
+    }
+
+    private IEnumerator WaitForChoreContext(HostChores.HostChoreInfo newChore, float waitIncrement, float maxWaitTime)
+    {
+        var choreContext = FindContext();
+        for (float waitTime = 0; waitTime < maxWaitTime; waitTime += waitIncrement)
+        {
+            if (choreContext != null)
+            {
+                break;
+            }
+            log.Debug(
+                $"Chore not found {instanceId} {instanceString} {instanceCell} {choreId} {choreType} {choreCell}, waiting {waitIncrement} - {waitTime}"
+            );
+
+            yield return new WaitForSeconds(waitIncrement);
+
+            if (newChore.SearchState == HostChores.ContextSearchState.Cancelled)
+            {
+                break;
+            }
+            choreContext = FindContext();
+        }
+
+        inProgressSearches[choreId].Remove(newChore);
+
+        if (choreContext == null)
+        {
+            log.Warning(
+                $"Chore {choreId} {choreType} context not found after waiting, attempting creation"
+            );
+            choreContext = CreateMissingContext();
+            if (choreContext == null)
+            {
+                newChore.Fail();
+                yield break;
+            }
+            log.Debug(
+                $"Chore {choreId} {choreType} created"
+            );
+        }
+
+        newChore.SetContext(choreContext.Value, lastChoreSucceeded);
+
+        log.Debug(
+            $"Chore found or created {instanceId} {instanceString} {instanceCell} {choreId} {choreType} {choreCell} after waiting"
+        );
     }
 
     private Chore.Precondition.Context? FindContext() {
         var prefabID = Object.FindObjectsOfType<KPrefabID>().FirstOrDefault(a => a.InstanceID == instanceId);
         if (prefabID == null) {
-            log.Warning($"Multiplayer: KPrefabID not found {instanceId}");
+            log.Warning(
+                $"Multiplayer: Consumer does not exists at KPrefabId with desired ID {instanceId}. Id collision??"
+            );
             return null;
         }
         var consumer = prefabID.GetComponent<ChoreConsumer>();
@@ -99,7 +189,7 @@ public class FindNextChore : MultiplayerCommand {
                     );
 
         if (choreWithIdCollision != null) {
-            choreWithIdCollision.id = new Random().Next();
+            choreWithIdCollision.id = new System.Random().Next();
             choreWithIdCollision.driver = null;
         }
 
@@ -147,11 +237,8 @@ public class FindNextChore : MultiplayerCommand {
         ref Chore? choreWithIdCollision
     ) {
         var globalChores =
-            Object.FindObjectsOfType<ChoreConsumer>()
-                .SelectMany(
-                    consumer => consumer.GetProviders()
-                        .SelectMany(provider => provider.choreWorldMap.Values.SelectMany(x => x)).ToArray()
-                ).ToArray();
+            Object.FindObjectsOfType<ChoreProvider>()
+                .SelectMany(provider => provider.choreWorldMap.Values.SelectMany(x => x)).ToArray();
 
         var chore = FindFullMatch(
             globalChores,
@@ -226,6 +313,33 @@ public class FindNextChore : MultiplayerCommand {
             return null;
         }
         return results.Single();
+    }
+
+    private Chore.Precondition.Context? CreateMissingContext()
+    {
+        var prefabID = Object.FindObjectsOfType<KPrefabID>().FirstOrDefault(a => a.InstanceID == instanceId);
+        var consumer = prefabID.GetComponent<ChoreConsumer>();
+
+        var breather = prefabID.GetComponent<OxygenBreather>();
+        if (breather == null)
+        {
+            log.Warning(
+                $"Multiplayer: OxygenBreather does not exists at KPrefabId with desired ID {instanceId}. Perhaps it is not a minion?"
+            );
+            return null;
+        }
+        Chore? newChore = null;
+        if (choreType.Contains("MoveToSafetyChore"))
+        {
+            newChore = new MoveToSafetyChore((IStateMachineTarget) breather);
+        }
+        if (newChore != null)
+        {
+            var context = new Chore.Precondition.Context(newChore, consumer.consumerState, false);
+            return context;
+        }
+
+        return null;
     }
 
     /// <summary>
