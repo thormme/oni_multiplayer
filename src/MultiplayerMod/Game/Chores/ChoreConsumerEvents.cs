@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using MultiplayerMod.Core.Logging;
 using MultiplayerMod.ModRuntime.Context;
@@ -48,8 +49,16 @@ public class ChoreConsumerEvents {
         var kPrefabID = __instance.gameObject.GetComponent<KPrefabID>();
         var instanceId = kPrefabID.InstanceID;
         var choreId = out_context.chore.id;
-        object[] getSMIParameters = {};
-        StateMachine.Instance smi = (StateMachine.Instance) out_context.chore.GetType().GetMethod("GetSMI").Invoke(out_context.chore, getSMIParameters);
+
+        MethodInfo? getSMIMethod = out_context.chore.GetType().GetMethod("GetSMI", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy);
+
+        if (getSMIMethod == null )
+        {
+            log.Warning("getSMIMethod not found");
+        }
+
+        object[] getSMIParameters = { };
+        StateMachine.Instance smi = (StateMachine.Instance) (getSMIMethod!.Invoke(out_context.chore, getSMIParameters));
 
         var args = new FindNextChoreEventArgs(
             instanceId,
