@@ -30,13 +30,20 @@ public class WorkerEvents
     //[RequireExecutionLevel(ExecutionLevel.Game)]
     public static bool Prefix(Worker __instance, ref float dt, ref Workable __state)
     {
-        if (!Runtime.Instance.Dependencies.Get<ExecutionLevelManager>().LevelIsActive(ExecutionLevel.Game))
-        {
-            return true;
-        }
+        //if (!Runtime.Instance.Dependencies.Get<ExecutionLevelManager>().LevelIsActive(ExecutionLevel.Game))
+        //{
+        //    return true;
+        //}
         if (Dependencies.Get<MultiplayerGame>().Mode != MultiplayerMode.Host)
         {
-            return false;
+            // Negative values are a flag for the override to do work on the client
+            if (dt < 0)
+            {
+                dt = -dt;
+                return true;
+            }
+            dt = .0001f;
+            return true;
         }
 
         __state = __instance.workable;

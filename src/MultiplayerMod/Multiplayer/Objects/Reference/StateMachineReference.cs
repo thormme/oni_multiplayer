@@ -16,6 +16,6 @@ public class StateMachineReference {
         StateMachineType = stateMachineType;
     }
 
-    public StateMachine.Instance? GetInstance() => ControllerReference.GetComponent().GetSMI(StateMachineType);
+    public StateMachine.Instance? GetInstance() => ControllerReference.IsValid() ? ControllerReference.GetComponent().GetSMI(StateMachineType) : null;
 
 }

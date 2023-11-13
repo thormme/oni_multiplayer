@@ -29,7 +29,7 @@ public class FindNextChore : MultiplayerCommand {
     private StateMachineReference choreStateMachineRef;
 
     [System.NonSerialized]
-    private Dictionary<int, List<HostChores.HostChoreInfo>> inProgressSearches = new Dictionary<int, List<HostChores.HostChoreInfo>>();
+    private static Dictionary<int, List<HostChores.HostChoreInfo>> inProgressSearches = new Dictionary<int, List<HostChores.HostChoreInfo>>();
 
     public FindNextChore(FindNextChoreEventArgs args) {
         log.Level = LogLevel.Debug;
@@ -47,6 +47,7 @@ public class FindNextChore : MultiplayerCommand {
     }
 
     public override void Execute(MultiplayerCommandContext context) {
+        log.Level = LogLevel.Debug;
         log.Debug(
             $"Received {instanceId} {instanceString} {instanceCell} {choreId} {choreType} {choreCell}"
         );

@@ -5,8 +5,10 @@ using System.Reflection;
 using System.Threading.Tasks;
 using HarmonyLib;
 using MultiplayerMod.Core.Logging;
+using MultiplayerMod.ModRuntime;
 using MultiplayerMod.ModRuntime.Context;
 using MultiplayerMod.ModRuntime.Loader;
+using MultiplayerMod.ModRuntime.StaticCompatibility;
 using MultiplayerMod.Multiplayer;
 using MultiplayerMod.Multiplayer.Commands.Chores;
 using MultiplayerMod.Multiplayer.CoreOperations;
@@ -171,6 +173,14 @@ public class StateMachineSyncEvents
     //[RequireExecutionLevel(ExecutionLevel.Game)]
     public static void Postfix(StateMachine.Instance __instance, ref StateMachine.BaseState base_state, ref StateMachine.BaseState __state)
     {
+        if (!Runtime.Instance.Dependencies.Get<ExecutionLevelManager>().LevelIsActive(ExecutionLevel.Game))
+        {
+            return;
+        }
+        if (Dependencies.Get<MultiplayerGame>().Mode != MultiplayerMode.Host)
+        {
+            return;
+        }
         log.Level = LogLevel.Debug;
         //log.Debug($"Goto state: {__instance} {SyncedInstances.Contains(__instance)} {base_state}");
         if (!SyncedInstances.Contains(__instance))

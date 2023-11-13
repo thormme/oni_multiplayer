@@ -49,7 +49,7 @@ public class FinishWorkEvent : MultiplayerCommand {
             return;
         }
         log.Warning(
-            $"Received {workerID.GetComponent().name} {workableID.GetComponent().GetType()}"
+            $"Received {workerID.GetComponent().name} {workableID.GetComponent().GetType()} {workTime}"
         );
         var workable = workableID.GetComponent();
         var worker = workerID.GetComponent();
@@ -61,7 +61,8 @@ public class FinishWorkEvent : MultiplayerCommand {
             float dt = 0.5f;
             for (float time = 0; time < workTime + 10; time += dt)
             {
-                if (worker.Work(dt) != Worker.WorkResult.InProgress)
+                // Negative values are a flag for the override to do work on the client
+                if (worker.Work(-dt) != Worker.WorkResult.InProgress)
                 {
                     break;
                 }
