@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MultiplayerMod.Core.Logging;
 using MultiplayerMod.Game.Chores;
+using MultiplayerMod.Multiplayer.Objects;
 using MultiplayerMod.Multiplayer.Objects.Reference;
 using MultiplayerMod.Multiplayer.World;
 using UnityEngine;
@@ -24,6 +25,7 @@ public class FindNextChore : MultiplayerCommand {
     private int choreCell;
     private bool isAttemptingOverride;
     private bool lastChoreSucceeded;
+    private MultiplayerIdReference choreObjectRef;
     private StateMachineReference choreStateMachineRef;
 
     [System.NonSerialized]
@@ -40,6 +42,7 @@ public class FindNextChore : MultiplayerCommand {
         choreCell = args.ChoreCell;
         isAttemptingOverride = args.IsAttemptingOverride;
         lastChoreSucceeded = args.LastChoreSucceeded;
+        choreObjectRef = args.ChoreObjectReference;
         choreStateMachineRef = args.ChoreStateMachine;
     }
 
@@ -128,6 +131,24 @@ public class FindNextChore : MultiplayerCommand {
         }
 
         newChore.SetContext(choreContext.Value, lastChoreSucceeded);
+        var newChoreObjectInstance = newChore.Context!.Value.chore.gameObject.GetComponent<MultiplayerInstance>();
+        // TODO: Check if overriding
+        if (newChoreObjectInstance.Id != null && newChoreObjectInstance.Id != choreObjectRef.Id)
+        {
+            log.Warning($"Overriding object ID: {newChoreObjectInstance.Id} with {choreObjectRef.Id}");
+        }
+        newChoreObjectInstance.Id = choreObjectRef.Id;
+        newChoreObjectInstance.Register();
+
+        var choreStateMachineInstance = choreStateMachineRef.GetInstance();
+        if (choreStateMachineInstance != null)
+        {
+            StateMachineSyncEvents.SyncedInstances.Add(choreStateMachineInstance);
+        }
+        else
+        {
+            log.Warning($"Unable to sync state machine goto events, can't get state machine instance: {newChoreObjectInstance.Id}");
+        }
 
         log.Debug(
             $"Chore found or created {instanceId} {instanceString} {instanceCell} {choreId} {choreType} {choreCell} after waiting"

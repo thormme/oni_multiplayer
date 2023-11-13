@@ -8,6 +8,7 @@ using MultiplayerMod.Multiplayer;
 using MultiplayerMod.Multiplayer.CoreOperations;
 using MultiplayerMod.Multiplayer.Objects;
 using MultiplayerMod.Multiplayer.Objects.Reference;
+using UnityEngine;
 
 namespace MultiplayerMod.Game.Chores;
 
@@ -50,6 +51,11 @@ public class ChoreConsumerEvents {
         var instanceId = kPrefabID.InstanceID;
         var choreId = out_context.chore.id;
 
+        var choreObjectInstance = out_context.chore.gameObject.GetComponent<MultiplayerInstance>();
+        var choreObjectId = choreObjectInstance.Register();
+        var choreObjectReference = new MultiplayerIdReference(choreObjectId);
+
+
         MethodInfo? getSMIMethod = out_context.chore.GetType().GetMethod("GetSMI", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy);
 
         if (getSMIMethod == null )
@@ -69,11 +75,15 @@ public class ChoreConsumerEvents {
             Grid.PosToCell(out_context.chore.gameObject.transform.position),
             out_context.isAttemptingOverride,
             lastChoreSucceeded,
+            choreObjectReference,
             smi.GetReference()
         );
+
+        // TODO: Remove smi after chore finished to prevent leak
+        StateMachineSyncEvents.SyncedInstances.Add(smi);
         lastChoreTriggered[__instance] = out_context;
         log.Debug(
-            $"Triggering {args.InstanceId} {args.InstanceString} {args.InstanceCell} {args.ChoreId} {args.ChoreType} {args.ChoreCell} {args.LastChoreSucceeded}"
+            $"Triggering {args.InstanceId} {args.InstanceString} {args.InstanceCell} {args.ChoreId} {args.ChoreType} {args.ChoreCell} {args.LastChoreSucceeded} {args.ChoreObjectReference.Id}"
         );
         FindNextChore?.Invoke(
             args
@@ -91,5 +101,6 @@ public record FindNextChoreEventArgs(
     int ChoreCell,
     bool IsAttemptingOverride,
     bool LastChoreSucceeded,
+    MultiplayerIdReference ChoreObjectReference,
     StateMachineReference ChoreStateMachine
 );

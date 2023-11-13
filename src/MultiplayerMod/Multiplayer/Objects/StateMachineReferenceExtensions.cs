@@ -12,8 +12,17 @@ public static class StateMachineReferenceExtensions {
 
     // `controller` field is defined in StateMachine<,,,>.GenericInstance. However cast is impossible due to unknown
     // generic argument types. So reflection is the most handy way to get its value :(
-    private static StateMachineController GetStateMachineController(StateMachine.Instance instance) =>
-        (StateMachineController) instance.GetType()
+    private static StateMachineController GetStateMachineController(StateMachine.Instance instance)
+    {
+        if (instance.GetType().BaseType.ToString().Contains("GameStateMachine"))
+        {
+            return (StateMachineController) instance.GetType().BaseType
             .GetField("controller", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(instance);
+        }
+        return (StateMachineController) instance.GetType()
+            .GetField("controller", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(instance);
+    }
+        
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -9,6 +9,7 @@ using MultiplayerMod.Core.Events;
 using MultiplayerMod.Core.Extensions;
 using MultiplayerMod.Core.Logging;
 using MultiplayerMod.Core.Patch;
+using MultiplayerMod.Game.Chores;
 
 namespace MultiplayerMod.ModRuntime.Loader;
 
@@ -19,6 +20,9 @@ public class DelayedModLoader {
     private readonly Harmony harmony;
     private readonly Assembly assembly;
     private readonly IReadOnlyList<Mod> mods;
+
+
+    delegate void GotoFunc(StateMachine.BaseState base_state);
 
     public DelayedModLoader(Harmony harmony, Assembly assembly, IReadOnlyList<Mod> mods) {
         this.harmony = harmony;
@@ -32,6 +36,19 @@ public class DelayedModLoader {
             .AddType<EventDispatcher>()
             .ScanAssembly(assembly);
         PrioritizedPatch();
+
+        var go = new UnityEngine.GameObject("fakestatego");
+        var master = (IStateMachineTarget) go.AddComponent<KMonoBehaviour>();
+        var smi = new ColonyRationMonitor.Instance(master);
+        GotoFunc original = smi.GoTo;
+        var prefix = StateMachineSyncEvents.Prefix;
+        var postfix = StateMachineSyncEvents.Postfix;
+        var prefixMethod = new HarmonyMethod(prefix.Method);
+        var postfixMethod = new HarmonyMethod(postfix.Method);
+
+        harmony.Patch(original.Method, prefix: prefixMethod, postfix: postfixMethod);
+        UnityEngine.GameObject.Destroy(go);
+
         assembly.GetTypes()
             .Where(type => typeof(IModComponentConfigurer).IsAssignableFrom(type) && type.IsClass)
             .OrderBy(type => type.GetCustomAttribute<ModComponentOrder>()?.Order ?? ModComponentOrder.Default)

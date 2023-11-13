@@ -17,12 +17,14 @@ public class FinishWorkEvent : MultiplayerCommand {
 
     private ComponentReference<Worker> workerID;
     private ComponentReference<Workable> workableID;
+    private float workTime;
 
     public FinishWorkEvent(FinishWorkEventArgs args) {
         log.Level = LogLevel.Debug;
 
         workerID = args.WorkerID;
         workableID = args.WorkableID;
+        workTime = args.WorkTime;
     }
 
     //static Workable? GetMatchingWorkable(Worker worker, Type workableType)
@@ -57,7 +59,7 @@ public class FinishWorkEvent : MultiplayerCommand {
         if (worker.workable == workable)
         {
             float dt = 0.5f;
-            for (float time = 0; time < 10; time += dt)
+            for (float time = 0; time < workTime + 10; time += dt)
             {
                 if (worker.Work(dt) != Worker.WorkResult.InProgress)
                 {
